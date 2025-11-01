@@ -22,3 +22,41 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+# ===== General =====
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.bak
+
+# ===== IDEs =====
+.vscode/
+.idea/
+*.iml
+
+# ===== Environment =====
+.env
+*.env
+
+# ===== Node / Frontend =====
+node_modules/
+dist/
+build/
+coverage/
+*.cache
+
+# ===== Java / Spring Boot =====
+target/
+out/
+*.class
+*.jar
+*.war
+
+# ===== Python / Backend Scripts =====
+__pycache__/
+*.pyc
+venv/
+
+# ===== OS / Misc =====
+*.swp
+*.swo
