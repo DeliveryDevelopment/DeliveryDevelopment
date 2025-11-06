@@ -7,7 +7,7 @@ plugins {
 
 group = 'com.laioffer'
 version = '0.0.1-SNAPSHOT'
-description = 'delivery'
+description = 'staybooking'
 
 
 java {
@@ -23,7 +23,7 @@ repositories {
 
 
 dependencies {
-    implementation 'com.google.cloud:google-cloud-storage:2.59.0' // Storage for listing pictures
+    implementation 'com.google.cloud:google-cloud-storage:2.23.0' // Storage for listing pictures
     implementation 'com.google.maps:google-maps-services:2.2.0' // Location lookup, from address to lat/lng
     implementation 'io.jsonwebtoken:jjwt-api:0.11.5' // JWT token generation
     implementation 'org.hibernate.orm:hibernate-spatial:6.1.7.Final' // Hibernate spatial for location search

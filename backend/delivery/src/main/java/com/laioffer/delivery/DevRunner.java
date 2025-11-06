@@ -59,7 +59,7 @@ public class DevRunner implements ApplicationRunner {
 
         List<ListingEntity> johnListings = listingRepository.findAllByHostId(1L);
         logger.info("Host rich_the_landlord has the following listings: " + johnListings);
-
+//entity cannot be record, cannot be written again
 
         List<ListingEntity> availableListings = listingRepository.searchListings(
                 37.55093541777099,
@@ -195,3 +195,4 @@ public class DevRunner implements ApplicationRunner {
         ));
     }
 }
+

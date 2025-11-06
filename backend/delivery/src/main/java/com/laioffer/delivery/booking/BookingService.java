@@ -6,6 +6,7 @@ import com.laioffer.delivery.model.BookingEntity;
 import com.laioffer.delivery.model.ListingEntity;
 import com.laioffer.delivery.repository.BookingRepository;
 import com.laioffer.delivery.repository.ListingRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 
 
@@ -51,6 +52,10 @@ public class BookingService {
 
 
     public void createBooking(long guestId, long listingId, LocalDate checkIn, LocalDate checkOut) {
+        if (!listingRepository.existsById(listingId)) {
+            throw new EntityNotFoundException(String.format("Listing %d not found", listingId));
+        }
+
         if (checkIn.isAfter(checkOut)) {
             throw new InvalidBookingException("Check-in date must be before check-out date.");
         }
