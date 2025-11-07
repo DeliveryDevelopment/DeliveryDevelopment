@@ -5,7 +5,6 @@ import com.laioffer.delivery.common.ErrorResponse;
 import com.laioffer.delivery.user.User;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -60,17 +59,6 @@ public class JwtFilter extends OncePerRequestFilter {
             }
         }
 
-        if (SecurityContextHolder.getContext().getAuthentication() == null) {
-            String guestToken = resolveGuestToken(request);
-            if (StringUtils.hasText(guestToken)) {
-                GuestPrincipal guestPrincipal = new GuestPrincipal(guestToken);
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(guestPrincipal, null, Collections.emptyList());
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-            }
-        }
-
         filterChain.doFilter(request, response);
     }
 
@@ -80,19 +68,6 @@ public class JwtFilter extends OncePerRequestFilter {
             return null;
         }
         return authorization.substring(7);
-    }
-
-    private String resolveGuestToken(HttpServletRequest request) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies == null) {
-            return null;
-        }
-        for (Cookie cookie : cookies) {
-            if ("guest_token".equals(cookie.getName()) && StringUtils.hasText(cookie.getValue())) {
-                return cookie.getValue();
-            }
-        }
-        return null;
     }
 
     private void writeUnauthorized(HttpServletResponse response, String message) throws IOException {

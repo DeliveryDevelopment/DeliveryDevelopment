@@ -1,0 +1,136 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "org.springframework.boot",
+    "module": "spring-boot-test",
+    "version": "3.3.6",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "8.11"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.environment": "standard-jvm",
+        "org.gradle.jvm.version": 17,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "dependencies": [
+        {
+          "group": "org.springframework.boot",
+          "module": "spring-boot",
+          "version": {
+            "requires": "3.3.6"
+          }
+        },
+        {
+          "group": "org.springframework",
+          "module": "spring-test",
+          "version": {
+            "requires": "6.1.15"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "spring-boot-test-3.3.6.jar",
+          "url": "spring-boot-test-3.3.6.jar",
+          "size": 249174,
+          "sha512": "2c49f1f9b00eeef4023ee9f441b4360441350445405b0cfc1cd36ab6814ea692c4448ffd9e167ad815acbb9381458127545a6317216047f6b514e3db1e195e36",
+          "sha256": "c0372751c36770ec07f7e21ed5c25a0f08484992d1836465840618b430777e77",
+          "sha1": "b03bfefb19ddc2bc1511a23c23176d1ae3e7ea0f",
+          "md5": "2be55885a0e37743930380de0516bb1a"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.environment": "standard-jvm",
+        "org.gradle.jvm.version": 17,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "dependencies": [
+        {
+          "group": "org.springframework.boot",
+          "module": "spring-boot",
+          "version": {
+            "requires": "3.3.6"
+          }
+        },
+        {
+          "group": "org.springframework",
+          "module": "spring-test",
+          "version": {
+            "requires": "6.1.15"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "spring-boot-test-3.3.6.jar",
+          "url": "spring-boot-test-3.3.6.jar",
+          "size": 249174,
+          "sha512": "2c49f1f9b00eeef4023ee9f441b4360441350445405b0cfc1cd36ab6814ea692c4448ffd9e167ad815acbb9381458127545a6317216047f6b514e3db1e195e36",
+          "sha256": "c0372751c36770ec07f7e21ed5c25a0f08484992d1836465840618b430777e77",
+          "sha1": "b03bfefb19ddc2bc1511a23c23176d1ae3e7ea0f",
+          "md5": "2be55885a0e37743930380de0516bb1a"
+        }
+      ]
+    },
+    {
+      "name": "javadocElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "javadoc",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "spring-boot-test-3.3.6-javadoc.jar",
+          "url": "spring-boot-test-3.3.6-javadoc.jar",
+          "size": 413146,
+          "sha512": "abca37b98b89904c8b6f4f7dd24676a7b9609949610987c8d6314dd84b015e576d278e7b3fd645aa1f61c29c3be7a50d340930516d92f77b9f7ba7d2b02b0910",
+          "sha256": "3c325d22aa68b5b57241aff9e28acd076a6b60fe9042acbaa5665b5f618725bd",
+          "sha1": "a9f9f5cf1614f9fc079e2516ec2c5254c1fec403",
+          "md5": "45288ba9f03f8f863b7a2934cd609369"
+        }
+      ]
+    },
+    {
+      "name": "sourcesElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "spring-boot-test-3.3.6-sources.jar",
+          "url": "spring-boot-test-3.3.6-sources.jar",
+          "size": 172020,
+          "sha512": "4004268eca54a8fb10a35913f06dcecb8cd29ab1b0fc44ad4652a60c55680e55e1ce26e32aad208170f277f8b1a78f32e06915ffcaa825fcb89befc0d1eb5671",
+          "sha256": "7bb484bc2fa332ff9a2a78b6ff879b78b741fbd113fe72fbd2f3fdcd0e4c87aa",
+          "sha1": "0d2b4ff603f4332e9ff475c4e7314fa104f5a6c2",
+          "md5": "adc709cb38dfb4652c35994b6e3f6f21"
+        }
+      ]
+    }
+  ]
+}

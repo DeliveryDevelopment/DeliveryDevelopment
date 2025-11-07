@@ -1,18 +1,16 @@
 package com.laioffer.delivery.order;
 
-import com.laioffer.delivery.auth.RequestPrincipal;
+import com.laioffer.delivery.auth.UserPrincipal;
 import com.laioffer.delivery.pkg.Package;
 import com.laioffer.delivery.pkg.PackageService;
 import com.laioffer.delivery.common.ValidationUtil;
-import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseCookie;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.util.CollectionUtils;
 import org.springframework.validation.annotation.Validated;
@@ -25,7 +23,6 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
@@ -42,22 +39,17 @@ public class OrderController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public OrderResponse createOrder(@Valid @RequestBody CreateOrderRequest request,
-                                     Authentication authentication,
-                                     HttpServletResponse response) {
-        RequestPrincipal principal = RequestPrincipal.from(authentication);
-        OrderService.OrderCreationResult result = orderService.createOrder(
-                request.toCommand(), principal);
-        if (result.hasNewGuestToken()) {
-            attachGuestCookie(response, result.newGuestToken());
-        }
-        List<Package> packages = orderService.loadPackages(result.order().getId());
-        return toResponse(result.order(), packages);
+                                     Authentication authentication) {
+        UUID userId = requireUserId(authentication);
+        Order order = orderService.createOrder(request.toCommand(), userId);
+        List<Package> packages = orderService.loadPackages(order.getId());
+        return toResponse(order, packages);
     }
 
     @GetMapping
     public List<OrderResponse> listOrders(Authentication authentication) {
-        RequestPrincipal principal = RequestPrincipal.from(authentication);
-        List<Order> orders = orderService.getOrders(principal);
+        UUID userId = requireUserId(authentication);
+        List<Order> orders = orderService.getOrders(userId);
         return orders.stream()
                 .map(order -> toResponse(order, orderService.loadPackages(order.getId())))
                 .toList();
@@ -65,28 +57,29 @@ public class OrderController {
 
     @GetMapping("/{id}")
     public OrderResponse getOrder(@PathVariable Long id, Authentication authentication) {
-        RequestPrincipal principal = RequestPrincipal.from(authentication);
-        Order order = orderService.getOrder(id, principal);
+        UUID userId = requireUserId(authentication);
+        Order order = orderService.getOrder(id, userId);
         List<Package> packages = orderService.loadPackages(order.getId());
         return toResponse(order, packages);
     }
 
     @PostMapping("/{id}/confirm")
     public OrderResponse confirmOrder(@PathVariable Long id, Authentication authentication) {
-        RequestPrincipal principal = RequestPrincipal.from(authentication);
-        Order order = orderService.confirmOrder(id, principal);
+        UUID userId = requireUserId(authentication);
+        Order order = orderService.confirmOrder(id, userId);
         List<Package> packages = orderService.loadPackages(order.getId());
         return toResponse(order, packages);
     }
 
-    private void attachGuestCookie(HttpServletResponse response, String guestToken) {
-        ResponseCookie cookie = ResponseCookie.from("guest_token", guestToken)
-                .path("/")
-                .httpOnly(true)
-                .sameSite("Lax")
-                .maxAge(Duration.ofDays(30))
-                .build();
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    private UUID requireUserId(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new AccessDeniedException("Authentication required");
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof UserPrincipal userPrincipal) {
+            return userPrincipal.id();
+        }
+        throw new AccessDeniedException("Authentication required");
     }
 
     private OrderResponse toResponse(Order order, List<Package> packages) {

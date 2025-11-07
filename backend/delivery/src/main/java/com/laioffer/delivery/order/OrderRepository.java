@@ -10,9 +10,5 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     List<Order> findByUserIdOrderByCreatedAtDesc(UUID userId);
 
-    List<Order> findByGuestTokenOrderByCreatedAtDesc(String guestToken);
-
     Optional<Order> findByIdAndUserId(Long id, UUID userId);
-
-    Optional<Order> findByIdAndGuestToken(Long id, String guestToken);
 }

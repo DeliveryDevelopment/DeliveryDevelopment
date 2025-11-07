@@ -40,9 +40,6 @@ public class Order {
     @Column(name = "user_id")
     private UUID userId;
 
-    @Column(name = "guest_token", length = 64)
-    private String guestToken;
-
     @Column(name = "from_address", nullable = false, columnDefinition = "TEXT")
     private String fromAddress;
 
