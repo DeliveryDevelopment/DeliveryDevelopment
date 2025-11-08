@@ -1,0 +1,38 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: delivery
+      TZ: UTC
+    volumes:
+      - delivery-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  db-init:
+    image: postgres:16
+    depends_on:
+      - db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: delivery
+      DB_HOST: db
+      DB_PORT: "5432"
+    volumes:
+      - ./docker/ensure-delivery-db.sh:/opt/ensure-delivery-db.sh:ro
+    entrypoint: ["/bin/bash", "/opt/ensure-delivery-db.sh"]
+    restart: "no"
+
+volumes:
+  delivery-data:
