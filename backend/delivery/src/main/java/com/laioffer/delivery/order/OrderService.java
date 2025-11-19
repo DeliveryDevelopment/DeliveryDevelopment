@@ -1,93 +1,94 @@
 package com.laioffer.delivery.order;
 
-import com.laioffer.delivery.common.NotFoundException;
+import com.laioffer.delivery.order.dto.CreateOrderRequest;
 import com.laioffer.delivery.pkg.Package;
-import com.laioffer.delivery.pkg.PackageService;
-import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.AccessDeniedException;
+import com.laioffer.delivery.user.User;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 public class OrderService {
 
     private final OrderRepository orderRepository;
-    private final PackageService packageService;
 
+    public OrderService(OrderRepository orderRepository) {
+        this.orderRepository = orderRepository;
+    }
+
+    /**
+     * 创建订单的核心方法
+     * @param user 当前登录用户 (如果是游客，传入 null)
+     * @param request 前端传来的 DTO 数据
+     * @return 保存成功后的 Order 实体
+     */
     @Transactional
-    public Order createOrder(CreateOrderCommand command, UUID userId) {
-        if (userId == null) {
-            throw new AccessDeniedException("Authentication required");
-        }
-        if (!StringUtils.hasText(command.fromAddress()) || !StringUtils.hasText(command.toAddress())) {
-            throw new IllegalArgumentException("From and to addresses are required");
+    public Order createOrder(User user, CreateOrderRequest request) {
+        // 1. 初始化订单基础信息
+        Order order = Order.builder()
+                .fromAddress(request.pickupAddress())
+                .toAddress(request.deliveryAddress())
+                .notes(request.notes())
+                .trackingNumber(UUID.randomUUID().toString()) // 生成唯一追踪号
+                .status(OrderStatus.CREATED)                  // 初始状态
+                .userId(user != null ? user.getId() : null)   // 关键：Guest 为 null，User 为 UUID
+                .build();
+
+        // 2. 处理包裹列表 (DTO -> Entity) 并计算总重
+        BigDecimal totalWeight = BigDecimal.ZERO;
+
+        if (request.packages() != null) {
+            for (CreateOrderRequest.PackageDto pkgDto : request.packages()) {
+                // 创建 Package 实体
+                Package pkg = Package.builder()
+                        .weightKg(pkgDto.weightKg())
+                        .lengthCm(pkgDto.lengthCm())
+                        .widthCm(pkgDto.widthCm())
+                        .heightCm(pkgDto.heightCm())
+                        .description(pkgDto.description())
+                        .order(order) // 🔥 必须设置：将 Package 关联到 Order
+                        .build();
+
+                // 添加到 Order 的列表中 (为了级联保存)
+                order.addPackage(pkg);
+
+                // 累加重量
+                totalWeight = totalWeight.add(pkgDto.weightKg());
+            }
         }
 
-        Order order = Order.builder()
-                .userId(userId)
-                .fromAddress(command.fromAddress())
-                .toAddress(command.toAddress())
-                .weightKg(command.weightKg())
-                .lengthCm(command.lengthCm())
-                .widthCm(command.widthCm())
-                .heightCm(command.heightCm())
-                .notes(command.notes())
-                .build();
-        packageService.applyPackages(order, command.packages());
+        // 3. 计算价格 (Mock Logic: Base $10 + $2/kg)
+        BigDecimal price = calculateMockPrice(totalWeight);
+        order.setTotalPrice(price);
+
+        // 4. 保存到数据库
+        // 因为 Order 上配置了 CascadeType.ALL，所以保存 Order 时会自动保存所有的 Package
         return orderRepository.save(order);
     }
 
-    @Transactional
-    public Order confirmOrder(Long orderId, UUID userId) {
-        Order order = getOrder(orderId, userId);
-        if (order.getConfirmedAt() == null) {
-            order.setConfirmedAt(Instant.now());
-        }
-        return order;
+    // 简单的计价算法 (P0阶段使用)
+    private BigDecimal calculateMockPrice(BigDecimal weight) {
+        BigDecimal basePrice = new BigDecimal("10.00");
+        BigDecimal ratePerKg = new BigDecimal("2.00");
+        return basePrice.add(weight.multiply(ratePerKg));
     }
 
-    @Transactional
-    public Order getOrder(Long orderId, UUID userId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new NotFoundException("Order not found"));
-        if (!belongsToUser(order, userId)) {
-            throw new AccessDeniedException("You do not have access to this order");
-        }
-        return order;
+    /**
+     * 根据 ID 获取订单 (包含安全校验逻辑的雏形)
+     */
+    public Order getOrder(Long id) {
+        return orderRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Order not found with id: " + id));
     }
 
-    @Transactional
-    public List<Order> getOrders(UUID userId) {
-        if (userId == null) {
-            throw new AccessDeniedException("Authentication required");
-        }
-        return orderRepository.findByUserIdOrderByCreatedAtDesc(userId);
-    }
-
-    public List<Package> loadPackages(Long orderId) {
-        return packageService.findByOrderId(orderId);
-    }
-
-    public record CreateOrderCommand(
-            String fromAddress,
-            String toAddress,
-            BigDecimal weightKg,
-            BigDecimal lengthCm,
-            BigDecimal widthCm,
-            BigDecimal heightCm,
-            String notes,
-            List<PackageService.PackagePayload> packages
-    ) {
-    }
-
-    private boolean belongsToUser(Order order, UUID userId) {
-        return userId != null && userId.equals(order.getUserId());
+    /**
+     * 根据 TrackingNumber 获取订单 (用于游客查询)
+     */
+    public Order getOrderByTrackingNumber(String trackingNumber) {
+        return orderRepository.findByTrackingNumber(trackingNumber)
+                .orElseThrow(() -> new RuntimeException("Order not found with tracking number: " + trackingNumber));
     }
 }

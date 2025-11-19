@@ -1,73 +1,49 @@
 package com.laioffer.delivery.auth;
 
-import com.laioffer.delivery.common.ValidationUtil;
 import com.laioffer.delivery.user.User;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import lombok.Data;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import jakarta.validation.Valid;
-import java.util.UUID;
-
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
-@Validated
 public class AuthController {
 
     private final AuthService authService;
+
+    /**
+     * 注册接口
+     * 🔥 修复点：直接传入 RegisterRequest 对象，不再拆分字段
+     */
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public RegisterResponse register(@Valid @RequestBody RegisterRequest request) {
-        User user = authService.register(request.getEmail(), request.getPassword());
-        return new RegisterResponse(user.getId(), user.getEmail());
+    public void register(@Valid @RequestBody RegisterRequest request) {
+        authService.register(request);
     }
 
+    /**
+     * 登录接口
+     * 返回 JWT Token
+     */
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
-        User user = authService.authenticate(request.getEmail(), request.getPassword());
-        String accessToken = authService.createAccessToken(user);
-        return ResponseEntity.ok(new LoginResponse(accessToken));
+    public LoginResponse login(@RequestBody LoginRequest request) {
+        String token = authService.login(request.email(), request.password());
+        return new LoginResponse(token);
     }
 
-    @Data
-    public static class RegisterRequest {
-        @NotBlank
-        @Email
-        private String email;
+    // --- DTOs ---
 
-        @NotBlank
-        private String password;
-
-        public String getEmail() {
-            return ValidationUtil.normalizeEmail(email);
-        }
+    // 定义简单的登录请求体
+    public record LoginRequest(String email, String password) {
     }
 
-    @Data
-    public static class LoginRequest {
-        @NotBlank
-        private String email;
-        @NotBlank
-        private String password;
-
-        public String getEmail() {
-            return ValidationUtil.normalizeEmail(email);
-        }
-    }
-
-    public record RegisterResponse(UUID id, String email) {
-    }
-
-    public record LoginResponse(String accessToken) {
+    // 定义登录响应体
+    public record LoginResponse(String token) {
     }
 }

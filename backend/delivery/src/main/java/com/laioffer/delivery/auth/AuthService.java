@@ -1,11 +1,14 @@
 package com.laioffer.delivery.auth;
 
 import com.laioffer.delivery.user.User;
+import com.laioffer.delivery.user.UserRole;
 import com.laioffer.delivery.user.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -14,20 +17,41 @@ public class AuthService {
 
     private final UserService userService;
     private final JwtUtil jwtUtil;
+    private final AuthenticationManager authenticationManager;
 
-    public User register(String email, String password) {
-        return userService.createUser(email, password);
+    /**
+     * 注册逻辑
+     */
+    public User register(RegisterRequest request) {
+        UserRole role = request.role() != null ? request.role() : UserRole.ROLE_USER;
+
+        return userService.createUser(
+                request.email(),
+                request.password(),
+                request.username(),
+                role,
+                request.phoneNumber()
+        );
     }
 
-    public User authenticate(String email, String password) {
-        return userService.authenticate(email, password);
-    }
+    /**
+     * 登录逻辑
+     */
+    public String login(String email, String password) {
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(email, password)
+        );
 
-    public String createAccessToken(User user) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        User user = principal.getUser();
+
         return jwtUtil.generateToken(user);
     }
 
-    public Optional<User> findUser(UUID userId) {
+    /**
+     * 🔥 修复：把这个方法加回来，供 JwtFilter 使用
+     */
+    public User findUser(UUID userId) {
         return userService.findById(userId);
     }
 }

@@ -2,7 +2,9 @@ version: "3.9"
 
 services:
   db:
-    image: postgres:16
+    # 🔥 修改 1: 使用带 PostGIS 插件的镜像 (支持地理位置计算)
+    image: postgis/postgis:16-3.4
+    container_name: delivery-db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: secret
@@ -10,29 +12,20 @@ services:
       TZ: UTC
     volumes:
       - delivery-data:/var/lib/postgresql/data
+      # 🔥 修改 2: 利用官方特性自动初始化
+      # 把你的 SQL 或 Shell 脚本挂载到这里，启动时自动执行
+      - ./src/main/resources/postgis_extension.sql:/docker-entrypoint-initdb.d/10-init.sql
+      # 如果你还有原来的 ensure-delivery-db.sh，也可以挂载(确保它是 .sh 结尾且可执行)
+      # - ./docker/ensure-delivery-db.sh:/docker-entrypoint-initdb.d/20-ensure.sh
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d delivery"]
       interval: 5s
       timeout: 5s
       retries: 5
-      start_period: 5s
-
-  db-init:
-    image: postgres:16
-    depends_on:
-      - db
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: secret
-      POSTGRES_DB: delivery
-      DB_HOST: db
-      DB_PORT: "5432"
-    volumes:
-      - ./docker/ensure-delivery-db.sh:/opt/ensure-delivery-db.sh:ro
-    entrypoint: ["/bin/bash", "/opt/ensure-delivery-db.sh"]
-    restart: "no"
+      start_period: 10s
+    restart: always
 
 volumes:
   delivery-data:

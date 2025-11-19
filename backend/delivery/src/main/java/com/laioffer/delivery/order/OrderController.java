@@ -1,25 +1,16 @@
 package com.laioffer.delivery.order;
 
 import com.laioffer.delivery.auth.UserPrincipal;
+import com.laioffer.delivery.order.dto.CreateOrderRequest;
 import com.laioffer.delivery.pkg.Package;
-import com.laioffer.delivery.pkg.PackageService;
-import com.laioffer.delivery.common.ValidationUtil;
+import com.laioffer.delivery.user.User;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.NotBlank;
-import lombok.Data;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.Authentication;
-import org.springframework.util.CollectionUtils;
-import org.springframework.validation.annotation.Validated;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
@@ -27,172 +18,107 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/orders")
-@RequiredArgsConstructor
-@Validated
+// 1. 修正路径，匹配 SecurityConfig
+@RequestMapping("/api/orders")
 public class OrderController {
 
     private final OrderService orderService;
 
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public OrderResponse createOrder(@Valid @RequestBody CreateOrderRequest request,
-                                     Authentication authentication) {
-        UUID userId = requireUserId(authentication);
-        Order order = orderService.createOrder(request.toCommand(), userId);
-        List<Package> packages = orderService.loadPackages(order.getId());
-        return toResponse(order, packages);
+    public OrderController(OrderService orderService) {
+        this.orderService = orderService;
     }
 
-    @GetMapping
-    public List<OrderResponse> listOrders(Authentication authentication) {
-        UUID userId = requireUserId(authentication);
-        List<Order> orders = orderService.getOrders(userId);
-        return orders.stream()
-                .map(order -> toResponse(order, orderService.loadPackages(order.getId())))
-                .toList();
+    /**
+     * P0 核心：下单接口
+     * 支持 登录用户 (User) 和 游客 (Guest)
+     */
+    @PostMapping
+    public OrderResponse createOrder(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Valid @RequestBody CreateOrderRequest request) {
+
+        // 2. 修正 Guest 逻辑：不要强制 requireUserId
+        User user = null;
+        if (userPrincipal != null) {
+            user = userPrincipal.getUser();
+        }
+
+        // 调用 Service (Service 内部会处理 user 为 null 的情况)
+        Order order = orderService.createOrder(user, request);
+
+        // 3. 返回响应 (注意：Order 实体里已经没有 packages 列表了，因为是 Lazy Load，建议手动转)
+        return toResponse(order);
     }
 
     @GetMapping("/{id}")
-    public OrderResponse getOrder(@PathVariable Long id, Authentication authentication) {
-        UUID userId = requireUserId(authentication);
-        Order order = orderService.getOrder(id, userId);
-        List<Package> packages = orderService.loadPackages(order.getId());
-        return toResponse(order, packages);
-    }
+    public OrderResponse getOrder(@PathVariable Long id, @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        // 获取订单
+        Order order = orderService.getOrder(id);
 
-    @PostMapping("/{id}/confirm")
-    public OrderResponse confirmOrder(@PathVariable Long id, Authentication authentication) {
-        UUID userId = requireUserId(authentication);
-        Order order = orderService.confirmOrder(id, userId);
-        List<Package> packages = orderService.loadPackages(order.getId());
-        return toResponse(order, packages);
-    }
-
-    private UUID requireUserId(Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new AccessDeniedException("Authentication required");
+        // 4. 简单的安全检查
+        // 如果订单属于某个用户，且当前用户不是该用户，则拒绝
+        if (order.getUserId() != null) {
+            if (userPrincipal == null || !order.getUserId().equals(userPrincipal.getUser().getId())) {
+                throw new RuntimeException("Unauthorized");
+            }
         }
-        Object principal = authentication.getPrincipal();
-        if (principal instanceof UserPrincipal userPrincipal) {
-            return userPrincipal.id();
-        }
-        throw new AccessDeniedException("Authentication required");
+
+        return toResponse(order);
     }
 
-    private OrderResponse toResponse(Order order, List<Package> packages) {
-        List<PackageResponse> packageResponses = (packages == null ? Collections.<PackageResponse>emptyList()
-                : packages.stream()
-                .map(pkg -> new PackageResponse(
-                        pkg.getId(),
-                        pkg.getLengthCm(),
-                        pkg.getWidthCm(),
-                        pkg.getHeightCm(),
-                        pkg.getWeightKg(),
-                        pkg.getDescription()))
-                .toList());
+    // --- Helper Methods & DTOs ---
+
+    private OrderResponse toResponse(Order order) {
+        // 把 Entity 转为 Response DTO
+        // 注意：这里要去读取 order.getPackages()，如果是 Lazy Load 需要在 Service 层加 @Transactional 确保 Session 还在
+        List<PackageResponse> pkgResponses = order.getPackages().stream()
+                .map(p -> new PackageResponse(
+                        p.getId(),
+                        p.getWeightKg(),
+                        p.getLengthCm(),
+                        p.getWidthCm(),
+                        p.getHeightCm(),
+                        p.getDescription()
+                ))
+                .collect(Collectors.toList());
 
         return new OrderResponse(
                 order.getId(),
                 order.getUserId(),
+                order.getTrackingNumber(), // 加上 Tracking Number
                 order.getFromAddress(),
                 order.getToAddress(),
-                order.getWeightKg(),
-                order.getLengthCm(),
-                order.getWidthCm(),
-                order.getHeightCm(),
                 order.getNotes(),
-                order.getConfirmedAt(),
+                order.getTotalPrice(),     // 加上总价
+                order.getStatus(),
                 order.getCreatedAt(),
-                order.getUpdatedAt(),
-                packageResponses
+                pkgResponses
         );
     }
 
-    @Data
-    public static class CreateOrderRequest {
-        @NotBlank
-        private String fromAddress;
-        @NotBlank
-        private String toAddress;
-
-        @DecimalMin(value = "0.00", inclusive = false, message = "must be greater than 0")
-        private BigDecimal weightKg;
-        @DecimalMin(value = "0.00", inclusive = false, message = "must be greater than 0")
-        private BigDecimal lengthCm;
-        @DecimalMin(value = "0.00", inclusive = false, message = "must be greater than 0")
-        private BigDecimal widthCm;
-        @DecimalMin(value = "0.00", inclusive = false, message = "must be greater than 0")
-        private BigDecimal heightCm;
-        private String notes;
-
-        @Valid
-        private List<PackageRequest> packages;
-
-        OrderService.CreateOrderCommand toCommand() {
-            List<PackageService.PackagePayload> packagePayloads = CollectionUtils.isEmpty(packages)
-                    ? Collections.emptyList()
-                    : packages.stream()
-                    .map(pkg -> new PackageService.PackagePayload(
-                            pkg.getLengthCm(),
-                            pkg.getWidthCm(),
-                            pkg.getHeightCm(),
-                            pkg.getWeightKg(),
-                            ValidationUtil.trimToNull(pkg.getDescription())))
-                    .toList();
-
-            return new OrderService.CreateOrderCommand(
-                    ValidationUtil.trimToNull(fromAddress),
-                    ValidationUtil.trimToNull(toAddress),
-                    weightKg,
-                    lengthCm,
-                    widthCm,
-                    heightCm,
-                    ValidationUtil.trimToNull(notes),
-                    packagePayloads
-            );
-        }
-    }
-
-    @Data
-    public static class PackageRequest {
-        @DecimalMin(value = "0.00", inclusive = false, message = "must be greater than 0")
-        private BigDecimal lengthCm;
-        @DecimalMin(value = "0.00", inclusive = false, message = "must be greater than 0")
-        private BigDecimal widthCm;
-        @DecimalMin(value = "0.00", inclusive = false, message = "must be greater than 0")
-        private BigDecimal heightCm;
-        @DecimalMin(value = "0.00", inclusive = false, message = "must be greater than 0")
-        private BigDecimal weightKg;
-        private String description;
-    }
-
-    public record PackageResponse(
-            Long id,
-            BigDecimal lengthCm,
-            BigDecimal widthCm,
-            BigDecimal heightCm,
-            BigDecimal weightKg,
-            String description
-    ) {
-    }
-
+    // 响应体 DTO (放在类内部方便管理，也可以提出去)
     public record OrderResponse(
             Long id,
             UUID userId,
+            String trackingNumber,
             String fromAddress,
             String toAddress,
+            String notes,
+            BigDecimal totalPrice,
+            OrderStatus status,
+            Instant createdAt,
+            List<PackageResponse> packages
+    ) {}
+
+    public record PackageResponse(
+            Long id,
             BigDecimal weightKg,
             BigDecimal lengthCm,
             BigDecimal widthCm,
             BigDecimal heightCm,
-            String notes,
-            Instant confirmedAt,
-            Instant createdAt,
-            Instant updatedAt,
-            List<PackageResponse> packages
-    ) {
-    }
+            String description
+    ) {}
 }
