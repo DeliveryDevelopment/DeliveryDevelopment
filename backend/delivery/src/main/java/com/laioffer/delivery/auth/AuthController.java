@@ -40,6 +40,7 @@ public class AuthController {
     }
 
     @Data
+    // DTO
     public static class RegisterRequest {
         @NotBlank
         @Email
@@ -54,6 +55,7 @@ public class AuthController {
     }
 
     @Data
+    //DTO
     public static class LoginRequest {
         @NotBlank
         private String email;
