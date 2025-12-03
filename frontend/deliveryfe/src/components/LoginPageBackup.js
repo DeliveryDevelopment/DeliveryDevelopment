@@ -6,105 +6,35 @@ import { useAuth } from "../context/AuthContext";
 
 const { Title } = Typography;
 
-/**
- * Toggle this flag:
- * - true  => use in-memory mock auth (no backend)
- * - false => call real backend APIs defined in ./api/auth
- */
-const USE_MOCK_AUTH = true;
-
-// very small in-memory "database" for demo
-const mockUsers = {
-  "demo@delivery.com": {
-    password: "password123",
-    accessToken: "mock-token-demo-operator",
-  },
-};
-
-// simulate network latency
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const mockLogin = async ({ email, password }) => {
-  await sleep(600);
-
-  const record = mockUsers[email];
-  if (!record || record.password !== password) {
-    const error = new Error("Invalid email or password (mock)");
-    error.status = 401;
-    throw error;
-  }
-
-  return { accessToken: record.accessToken };
-};
-
-const mockRegister = async ({ email, password }) => {
-  await sleep(600);
-
-  if (mockUsers[email]) {
-    const error = new Error("User already exists (mock)");
-    error.status = 400;
-    throw error;
-  }
-
-  mockUsers[email] = {
-    password,
-    accessToken: `mock-token-${Date.now()}`,
-  };
-
-  return { success: true };
-};
-
 const LoginPage = () => {
   const [form] = Form.useForm();
   const { login } = useAuth();
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState("login");
 
-  const isLoginMode = mode === "login";
-
   const handleSubmit = async (values) => {
     setLoading(true);
     try {
-      if (USE_MOCK_AUTH) {
-        // ---------- MOCK BRANCH (no real backend) ----------
-        if (isLoginMode) {
-          const resp = await mockLogin(values);
-          const token = resp.accessToken;
-          login(token);
-          message.success("Mock login success");
-          return;
-        }
-
-        const { email, password } = values;
-        await mockRegister({ email, password });
-        message.success("Mock register success, please sign in");
-        setMode("login");
-        form.resetFields(["password", "confirmPassword"]);
-        return;
-      }
-
-      // ---------- REAL BACKEND BRANCH ----------
-      if (isLoginMode) {
+      if (mode === "login") {
         const response = await loginApi(values);
         const token = response?.accessToken || response?.token;
         if (!token) {
-          throw new Error("Login response does not contain accessToken");
+          throw new Error("登录响应缺少 accessToken");
         }
         login(token);
-        message.success("Login success");
+        message.success("登录成功");
         return;
       }
 
       const { email, password } = values;
       await registerApi({ email, password });
-      message.success("Register success, please sign in");
+      message.success("注册成功，请使用新账号登录");
       setMode("login");
       form.resetFields(["password", "confirmPassword"]);
     } catch (error) {
-      let msg =
-        error.message || (isLoginMode ? "Login failed" : "Register failed");
+      let msg = error.message || (isLoginMode ? "登录失败" : "注册失败");
       if (isLoginMode && error.status === 401) {
-        msg = "Invalid email or password";
+        msg = "邮箱或密码错误，请重试";
       }
       message.error(msg);
       if (isLoginMode) {
@@ -115,6 +45,8 @@ const LoginPage = () => {
     }
   };
 
+  const isLoginMode = mode === "login";
+
   const toggleMode = () => {
     const nextMode = isLoginMode ? "register" : "login";
     setMode(nextMode);
@@ -122,27 +54,9 @@ const LoginPage = () => {
   };
 
   return (
-    <div
-      className="login-container"
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background:
-          "radial-gradient(circle at top, #1f4b99 0, #0f172a 40%, #020617 100%)",
-      }}
-    >
-      <Card
-        style={{
-          maxWidth: 420,
-          width: "100%",
-          margin: "0 16px",
-          boxShadow: "0 18px 45px rgba(15,23,42,0.45)",
-          borderRadius: 16,
-        }}
-      >
-        <Title level={3} style={{ textAlign: "center", marginBottom: 24 }}>
+    <div className="login-container">
+      <Card style={{ maxWidth: 420, margin: "0 auto" }}>
+        <Title level={3} style={{ textAlign: "center" }}>
           Autonomous Delivery Platform
         </Title>
         <Form
@@ -161,11 +75,10 @@ const LoginPage = () => {
           >
             <Input
               prefix={<UserOutlined />}
-              placeholder="demo@delivery.com"
+              placeholder="operator@example.com"
               disabled={loading}
             />
           </Form.Item>
-
           <Form.Item
             name="password"
             label="Password"
@@ -183,7 +96,6 @@ const LoginPage = () => {
               disabled={loading}
             />
           </Form.Item>
-
           {!isLoginMode && (
             <Form.Item
               name="confirmPassword"
@@ -201,7 +113,9 @@ const LoginPage = () => {
                     if (!value || getFieldValue("password") === value) {
                       return Promise.resolve();
                     }
-                    return Promise.reject(new Error("Passwords do not match"));
+                    return Promise.reject(
+                      new Error("Passwords do not match")
+                    );
                   },
                 }),
               ]}
@@ -213,7 +127,6 @@ const LoginPage = () => {
               />
             </Form.Item>
           )}
-
           <Form.Item>
             <Button
               loading={loading}
@@ -226,20 +139,11 @@ const LoginPage = () => {
             </Button>
           </Form.Item>
         </Form>
-
         <Button type="link" block onClick={toggleMode} disabled={loading}>
           {isLoginMode
             ? "Need an account? Create one"
             : "Already have an account? Sign in"}
         </Button>
-
-        {USE_MOCK_AUTH && (
-          <div style={{ marginTop: 16, fontSize: 12, color: "#64748b" }}>
-            <div>Demo account (mocked):</div>
-            <div>Email: demo@delivery.com</div>
-            <div>Password: password123</div>
-          </div>
-        )}
       </Card>
     </div>
   );
